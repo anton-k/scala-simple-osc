@@ -39,7 +39,7 @@ client.close
 Complete example:
 
 ~~~scala
-import scala.audio.osc.OscClient
+import scala.audio.osc._
 
 object PlainClient {    
     val client = OscClient(7711)
@@ -48,10 +48,20 @@ object PlainClient {
     val cps = client.channel[Float]("/cps")
     val play = client.channel[(String,Float,Float)]("/play")
 
-    amp.send(0.5f)
-    cps.send(0.25f)
-    play.send(("start", 0.2f, 0.3f))
-    client.close
+    def run {
+        amp.send(0.5f)
+        cps.send(0.25f)
+        play.send(("start", 0.2f, 0.3f))
+        client.close
+
+    }    
+}
+
+object App {
+
+    def main(args: Array[String]) {
+        PlainClient.run
+    }
 }
 ~~~
 
