@@ -21,7 +21,7 @@ To send the message we create a typed channel for a given address (specified wit
 val c = client.channel[Float]("/velocity")
 ~~~
 
-We can use booleans, stribgs, integers, floats and tuples of them (up to 8 elements if we want more we
+We can use booleans, strings, integers, floats and tuples of them (up to 8 elements if we want more we
 can use nested tuples). 
 
 Then we can use the channel to send the values:
@@ -81,3 +81,84 @@ object App {
 
 ### Server example
 
+Server waits for messages on the certain port:
+
+~~~scala
+val server = OscServer(7711)
+~~~
+
+We can register callbacks for the addresses:
+
+~~~scala
+server.listen[Float]("/cps") { x =>
+    println(s"/cps ${x}")
+}
+~~~
+
+When we are done with our job we should close the server:
+
+~~~scala
+server.close
+~~~
+
+Complete example:
+
+~~~scala
+import scala.audio.osc.OscServer
+
+object App {
+    val server = OscServer(7711)
+    
+    def main(args: Array[String]) {
+        server.listen[Float]("/amp") { x =>
+            println(s"/amp ${x}")
+        }
+
+        server.listen[Float]("/cps") { x =>
+            println(s"/cps ${x}")
+        }
+
+        // wait for messages for 10 minutes
+        Thread.sleep(10 * 60 * 1000)
+        server.close
+    }
+}
+~~~
+
+Servers also hav support for automatic resource managmnet (see the [scala-arm](https://github.com/jsuereth/scala-arm) library for details):
+
+~~~scala
+import scala.audio.osc.OscServer
+import resource._
+
+object Listeners {
+    def appendListeners(server: OscServer) {
+        server.listen[Float]("/amp") { x =>
+            println(s"/amp ${x}")
+        }
+
+        server.listen[Float]("/cps") { x =>
+            println(s"/cps ${x}")
+        }
+
+        server.listen[(Float, Float, Float)]("/play") { x =>
+            println(s"/play ${x}")
+        }     
+    }
+}
+
+object App
+    def main {
+        for (server <- managed(OscServer(7711))) {
+            Listeners.appendListeners(server)
+            Thread.sleep(10 * 60 * 1000)
+        }
+    }
+}
+~~~
+
+### Issues
+
+The library is a wrapper around JavaOSC library so along its merits it can also inherent 
+some flows. The noticed issue so far is that we can not end too many messages at the same moment
+so it's better to introduce the delays between messages if we want the server to keep all the messages.
