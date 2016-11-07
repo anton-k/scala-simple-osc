@@ -30,13 +30,19 @@ case class OscClient(port: Int, address: InetAddress = InetAddress.getLocalHost(
     }.toOption
 
     def channel[A](addr: String)(implicit codec: MessageCodec[A]): Channel[A] = new Channel[A]{
-        def send(msg: A) { client.map { c =>             
+        def send(msg: A) { client.foreach { c =>             
             c.send(new OSCMessage(addr, codec.getArgs(msg)))
         }}
     }
 
     def close {
         client.foreach(x => x.close)
+    }
+
+    def dynamicSend(addr: String, args: List[Object]) {
+        client.foreach { c =>
+            c.send(new OSCMessage(addr, Util.toArgArray(args)))
+        }
     }
 }
 
@@ -66,16 +72,19 @@ trait Channel[A] {
     def send(msg: A): Unit
 }
 
-trait MessageCodec[A] {
-    def toMessage(a: A): List[Object]
-    def fromMessage(xs: List[Object]): (A, List[Object])
-
-    def getArgs(a: A) = {
-        val list = toMessage(a)
+private object Util {
+    def toArgArray(list: List[Object]) = {
         val args = new ArrayList[Object](list.length)
         list.foreach(x => args.add(x))
         args
     }
+}
+
+trait MessageCodec[A] {
+    def toMessage(a: A): List[Object]
+    def fromMessage(xs: List[Object]): (A, List[Object])
+
+    def getArgs(a: A) = Util.toArgArray(toMessage(a))
 
     def fromOscMessage(msg: OSCMessage): A = fromMessage(msg.getArguments.toList)._1
 }
