@@ -9,8 +9,9 @@ We need to close the client and server to release the port.
 We can create the clients to send the messages to certain ports with constructor:
 
 ~~~scala
-val client = OscClient(7711)
+val client = OscClient(7711).get
 ~~~
+
 By default the host is local but we can also send the messages to other computer in the network
 if we specify `java.net.InetAddress` as a second parameter to constructor.
 

@@ -98,7 +98,7 @@ class AutocloseTest extends FunSuite {
             server <- managed(OscServer(port)) } {
 
             res = msgListThrough[String](client, server)("/string", List("Hello"))
-        }
+        }        
         res
     }
 

@@ -24,34 +24,40 @@ package scala.audio {
 
 package scala.audio.osc  {
 
+object OscClient {
+    def init(port: Int, address: InetAddress = InetAddress.getLocalHost()): Option[OscClient] = 
+        Try { OscClient(port, address) }.toOption    
+}
+
 case class OscClient(port: Int, address: InetAddress = InetAddress.getLocalHost()) {
-    val client = Try {
-        new OSCPortOut(address, port)
-    }.toOption
+    private val client = new OSCPortOut(address, port)    
 
     def channel[A](addr: String)(implicit codec: MessageCodec[A]): Channel[A] = new Channel[A]{
-        def send(msg: A) { client.foreach { c =>             
-            c.send(new OSCMessage(addr, codec.getArgs(msg)))
-        }}
+        def send(msg: A) { 
+            client.send(new OSCMessage(addr, codec.getArgs(msg)))
+        }
     }
 
     def close {
-        client.foreach(x => x.close)
+        client.close
     }
 
     def dynamicSend(addr: String, args: List[Object]) {
-        client.foreach { c =>
-            c.send(new OSCMessage(addr, Util.toArgArray(args)))
-        }
+        client.send(new OSCMessage(addr, Util.toArgArray(args)))        
     }
 }
 
+case object OscServer {
+    def init(port: Int): Option[OscServer] = 
+        Try { OscServer(port) }.toOption
+}
+
 case class OscServer(port: Int) {
-    private val server = Try {
+    private val server = {
         val res = new OSCPortIn(port)
         res.startListening
         res
-    }.toOption
+    }
 
     def listen[A](addr: String)(receive: A => Unit)(implicit codec: MessageCodec[A]) {
         val listener = new OSCListener {
@@ -59,12 +65,12 @@ case class OscServer(port: Int) {
                 receive(codec.fromOscMessage(msg))
             }
         }
-        server.foreach(x => x.addListener(addr, listener))
+        server.addListener(addr, listener)
     }   
 
     def close {
-        server.foreach(_.stopListening)
-        server.foreach(_.close)
+        server.stopListening
+        server.close
     }
 }
 
