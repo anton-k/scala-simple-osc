@@ -97,6 +97,11 @@ trait MessageCodec[A] {
 
 object MessageCodec {
 
+    implicit val unitOscMessageCodec = new MessageCodec[Unit] {
+        def toMessage(msg: Unit) = List()
+        def fromMessage(msg: List[Object]) = ((), msg)
+    }
+
     implicit val floatOscMessageCodec = new MessageCodec[Float] {
         def toMessage(msg: Float) = List(msg.asInstanceOf[java.lang.Float])
         def fromMessage(msg: List[Object]) = (msg.head.asInstanceOf[java.lang.Float].toFloat, msg.tail)
