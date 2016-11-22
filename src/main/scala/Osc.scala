@@ -62,7 +62,12 @@ case class OscServer(port: Int) {
     def listen[A](addr: String)(receive: A => Unit)(implicit codec: MessageCodec[A]) {
         val listener = new OSCListener {
             def acceptMessage(time: Date, msg: OSCMessage) {
-                receive(codec.fromOscMessage(msg))
+                try {
+                    receive(codec.fromOscMessage(msg))
+                } catch {
+                    case e: Exception => println(s"message receive crached on address ${msg.getAddress} with arguments ${msg.getArguments}")
+                }
+                
             }
         }
         server.addListener(addr, listener)
