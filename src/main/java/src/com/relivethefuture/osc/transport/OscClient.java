@@ -231,9 +231,9 @@ public class OscClient extends IoHandlerAdapter implements
 		logger.info("Session Opened");
 	}
 
-	public void disconnect() {
+	public void disconnect() {        
 		curConnectionAttempt = CONNECTION_ATTEMPTS; //deny any reconnection attempts
         connector.dispose(false);
-		session.close();
+		session.close(true);
 	}
 }
