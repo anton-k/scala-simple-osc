@@ -233,7 +233,7 @@ public class OscClient extends IoHandlerAdapter implements
 
 	public void disconnect() {
 		curConnectionAttempt = CONNECTION_ATTEMPTS; //deny any reconnection attempts
-        connector.dispose()
+        connector.dispose();
 		session.close();
 	}
 }
