@@ -1,6 +1,9 @@
-import com.illposed.osc._
+import com.relivethefuture.osc.data._
+import com.relivethefuture.osc.transport.{OscServer => JavaOscServer}
+import com.relivethefuture.osc.transport.{OscClient => JavaOscClient}
+
 import java.util.{ArrayList, Date}
-import java.net.InetAddress
+import java.net.{InetAddress, InetSocketAddress}
 import scala.util.Try
 
 import collection.JavaConverters._
@@ -17,7 +20,7 @@ package scala.audio {
 
         implicit def oscServerResource[A <: OscServer] = new Resource[A] {
             def close(r: A) = r.close
-            override def toString = "Resource[scala.audio.OscServer"
+            override def toString = "Resource[scala.audio.OscServer]"
         }
     }
 }
@@ -29,21 +32,22 @@ object OscClient {
         Try { OscClient(port, address) }.toOption    
 }
 
-case class OscClient(port: Int, address: InetAddress = InetAddress.getLocalHost()) {
-    private val client = new OSCPortOut(address, port)    
+case class OscClient(port: Int, address: InetAddress = InetAddress.getLocalHost(), isUDP: Boolean = true) {
+    private val client = new JavaOscClient(isUDP)    
+    client.connect(new InetSocketAddress(address, port))
 
     def channel[A](addr: String)(implicit codec: MessageCodec[A]): Channel[A] = new Channel[A]{
-        def send(msg: A) { 
-            client.send(new OSCMessage(addr, codec.getArgs(msg)))
+        def send(msg: A) {
+            Util .send(client, Util.getMessage(addr, codec.getArgs(msg)))
         }
     }
 
     def close {
-        client.close
+        client.disconnect
     }
 
     def dynamicSend(addr: String, args: List[Object]) {
-        client.send(new OSCMessage(addr, Util.toArgArray(args)))        
+        Util.send(client, Util.getMessage(addr, Util.toArgArray(args)))        
     }
 }
 
@@ -53,29 +57,14 @@ case object OscServer {
 }
 
 case class OscServer(port: Int) {
-    private val server = {
-        val res = new OSCPortIn(port)
-        res.startListening
-        res
-    }
+    private val server = Util.getServer(port)
 
     def listen[A](addr: String)(receive: A => Unit)(implicit codec: MessageCodec[A]) {
-        val listener = new OSCListener {
-            def acceptMessage(time: Date, msg: OSCMessage) {
-                try {
-                    receive(codec.fromOscMessage(msg))
-                } catch {
-                    case e: Exception => println(s"message receive crached on address ${msg.getAddress} with arguments ${msg.getArguments}")
-                }
-                
-            }
-        }
-        server.addListener(addr, listener)
+        Util.listen(server, addr, arguments => receive(codec.fromArgs(arguments)))
     }   
 
     def close {
-        server.stopListening
-        server.close
+        server.stop        
     }
 }
 
@@ -89,6 +78,44 @@ private object Util {
         list.foreach(x => args.add(x))
         args
     }
+
+    def getServer(port: Int) = {
+        val res = new JavaOscServer(port)
+        res.start
+        res
+    }
+
+    def getMessage(address: String, arguments: ArrayList[Object]) = {
+        val res = new OscMessage(address)
+        arguments.foreach(res.addArgument)
+        res
+    } 
+
+    def send(client: JavaOscClient, message: OscMessage) {
+        client.sendPacket(message)
+    } 
+
+    def listen(server: JavaOscServer, address: String, cbk: List[Object] => Unit) {
+        val msgCbk = getMessageCallback(address, cbk) _
+        server.addOscListener( new OscListener {
+            def handleMessage(msg: OscMessage) = msgCbk(msg)
+            def handleBundle(bundle: OscBundle) = foreachPacket(bundle, msgCbk)
+        })
+    }
+
+    private def getMessageCallback(address: String, cbk: List[Object] => Unit)(msg: OscMessage) = {
+        if (msg.getAddress == address) {
+            cbk(msg.getArguments.toList)
+        }
+    }
+
+    private def foreachPacket(packet: OscPacket, cbk: OscMessage => Unit) {
+        if (packet.isBundle) {
+            packet.asInstanceOf[OscBundle].getPackets.foreach(p => foreachPacket(p, cbk))
+        } else {
+            cbk(packet.asInstanceOf[OscMessage])
+        }
+    }
 }
 
 trait MessageCodec[A] {
@@ -96,8 +123,9 @@ trait MessageCodec[A] {
     def fromMessage(xs: List[Object]): (A, List[Object])
 
     def getArgs(a: A) = Util.toArgArray(toMessage(a))
+    def fromArgs(a: List[Object]) = fromMessage(a)._1
 
-    def fromOscMessage(msg: OSCMessage): A = fromMessage(msg.getArguments.toList)._1
+    def fromOscMessage(msg: OscMessage): A = fromMessage(msg.getArguments.toList)._1
 }
 
 object MessageCodec {
