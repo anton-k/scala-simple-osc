@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 
 import org.apache.mina.core.service.IoAcceptor;
+import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.apache.mina.filter.logging.LoggingFilter;
 import org.apache.mina.transport.socket.DatagramSessionConfig;
@@ -106,7 +107,12 @@ public class OscServer {
 	}
 
 	public void stop() {
+        acceptor.setCloseOnDeactivation(true);
+        for (IoSession ss : acceptor.getManagedSessions().values()) {
+          ss.close(true);
+        }
 		acceptor.unbind();
+        acceptor.dispose();
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -114,5 +120,4 @@ public class OscServer {
 		server.start();
 		server.addOscListener(new BasicOscListener());
 	}
-
 }

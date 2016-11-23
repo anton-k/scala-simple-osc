@@ -232,9 +232,8 @@ public class OscClient extends IoHandlerAdapter implements
 	}
 
 	public void disconnect() {
-		curConnectionAttempt = 0; // CONNECTION_ATTEMPTS; //deny any reconnection attempts
-        session.close(true).awaitUninterruptibly();        
+		curConnectionAttempt = CONNECTION_ATTEMPTS; //deny any reconnection attempts
         connector.dispose(false);
-		// session.closeNow();
+		session.close();
 	}
 }
